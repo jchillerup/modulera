@@ -12,18 +12,18 @@ outfile = wave.open('out.wav', 'wb')
 framerate = 11025.0
 amplitude = 8000
 sample_width = 2
-number_of_channels = 1
-number_of_frames_per_nibble = 500
+number_of_channels = 2
+number_of_frames_per_byte = 1000
 compression_type = "NONE"
 compression_name = "not compressed"
 
-outfile.setparams((number_of_channels, sample_width, framerate, number_of_frames_per_nibble, compression_type, compression_name))
+outfile.setparams((number_of_channels, sample_width, framerate, number_of_frames_per_byte, compression_type, compression_name))
 
 base_scale = [369.994, 415.305, 466.164, 554.365, 622.254,] # F# major pentatonic
 
 scale = [0]
 
-for multiplier in [1, 2, 4]:
+for multiplier in [0.5, 1, 2]:
     for tone in base_scale:
         scale.append(multiplier*tone)
 
@@ -35,24 +35,22 @@ while True:
     if not byte:
         break
 
-    nibble1 = ((ord(byte) & 0xF0) >> 4)
-    nibble2 = (ord(byte) & 0x0F)
+    high_nibble = ((ord(byte) & 0xF0) >> 4)
+    low_nibble = (ord(byte) & 0x0F)
+
+    left_multiplier  = 2*math.pi*scale[high_nibble]/framerate
+    right_multiplier = 2*math.pi*scale[low_nibble]/framerate
     
-    #for nibble in [((ord(byte) & 0xF0) >> 4), (ord(byte) & 0x0F)]:
-        #print nibble
-    for i in range(number_of_frames_per_nibble):
-        frequencies = [scale[nibble1], scale[nibble2]] # add more frequencies for polyphony
-
-        frame = 0
-        for frequency in frequencies:
-            frame += math.sin( 2 * math.pi * frequency * (i/framerate))
-
-            frame /= len(frequencies) # normalize
+    for i in range(number_of_frames_per_byte):
+        waveData = ""
         
-            outfile.writeframes(struct.pack('h', frame * amplitude/2))
+        waveData += struct.pack('h', amplitude*math.sin( left_multiplier * i))
+        waveData += struct.pack('h', amplitude*math.sin( right_multiplier * i))
 
+        outfile.writeframes(waveData)
+            
     sys.stdout.write("Byte count: %s\r" % count)
 
-
+sys.stdout.write("\n")
 outfile.close()
 infile.close()
